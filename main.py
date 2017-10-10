@@ -13,6 +13,7 @@ else:
 
 database = 'db/pyolo.db'    
 
+''' Uncomment this block to use the USB serial to interact with the JeVois camera'''
 # with serial.Serial('/dev/ttyACM0', timeout=1) as ser:
 #     ser.write('setpar cfgfile cfg/%s.cfg\n'%model)
 #     ser.write('setpar weightfile weights/%s.weights\n'%model)
@@ -43,6 +44,7 @@ database = 'db/pyolo.db'
 
 
 #test
+''' Comment out if using the actual camera output '''
 with open('serial.test') as f:
     lines = f.readlines()
     for i in range(len(lines)):
