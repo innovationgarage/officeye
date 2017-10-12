@@ -2,6 +2,7 @@ from datetime import datetime
 import time
 from math import *
 import numpy as np
+import math_tools as mtools
 
 class Object(object):
     def __init__(self, line):
@@ -48,7 +49,7 @@ class Object(object):
         sql = ''' INSERT INTO objects(obj_type,last_event,last_x_left,last_y_left,speed)
         VALUES(:_type,:timestamp,:last_x_left,:last_y_left,:speed) '''
         cur = conn.cursor()
-        cur.execute(sql, {'_type': self._type, 'timestamp': self.timestamp, 'last_x_left': self.x_left, 'last_y_left': self.y_left, 'speed': 0.0}) #an object without an event doesn't have a 'last_event'. duh!
+        cur.execute(sql, {'_type': self._type, 'timestamp': self.timestamp, 'last_x_left': self.x_left, 'last_y_left': self.y_left, 'speed': 0.0})
         return cur.lastrowid
 
     def calculate_speed(self, conn, object_id):
@@ -64,8 +65,8 @@ class Object(object):
             res = [self.timestamp, self.x_left, self.y_left]
         last_sight = datetime.strptime(res[0], "%Y-%m-%d %H:%M:%S")
         last_speed = float(res[1])
-#        dt = (datetime.strptime(self.timestamp, "%Y-%m-%d %H:%M:%S") - last_sight).total_seconds()
-        dt = 1. #test
+        dt = (datetime.strptime(self.timestamp, "%Y-%m-%d %H:%M:%S") - last_sight).total_seconds()
+#        dt = 1. #test
         d = sqrt((self.x_left-float(res[2]))**2+(self.y_left-float(res[3]))**2)
         if dt == 0:
             speed = 0.0
@@ -106,7 +107,6 @@ class Object(object):
         cur = conn.cursor()
         cur.execute(sql_update, (speed, object_id))
 
-    #FIXME! heuristic conditions to be derived experimentally!
     def isIn(self, database, conn):
         sql = ''' SELECT DISTINCT objects.id
         FROM objects
@@ -118,16 +118,24 @@ class Object(object):
         cur.execute(sql, (self._type,))
         objects = cur.fetchall()
         if len(objects):
+#            obj = (self.x_left, self.y_left, self.w_in, self.h_in, self.x_top, self.y_top, self.w_b, self.h_b)
+            obj = (self.x_left, self.y_left, self.w_b, self.h_b)
             candidate_ids = objects[0]
             object_ids = []
             for oid in candidate_ids:
                 last_speed, current_speed = self.calculate_speed(conn, oid)
-                print 'updating speed: ', oid, last_speed, current_speed
-                if (current_speed<0.5*last_speed)or(current_speed>1.5*last_speed):
-                    print 'before:', oid, object_ids
+#                candid_sql = ''' select x_left, y_left, w_in, h_in, x_top, y_top, w_b, h_b from events where obj_id=? ORDER BY events.timestamp DESC LIMIT 1 '''
+                candid_sql = ''' select x_left, y_left, w_b, h_b from events where obj_id=? ORDER BY events.timestamp DESC LIMIT 1 '''
+                candid_cur = conn.cursor()
+                candid_cur.execute(candid_sql, (oid,))
+                candid = candid_cur.fetchall()[0]
+                print oid
+                print obj
+                print candid
+                print '------'
+                print self.prob, mtools.bb_intersection_over_union(candid, obj)
+                if mtools.bb_intersection_over_union(candid, obj)<self.prob:
                     object_ids.append(oid)
-                    print 'after:', oid, object_ids                    
         else:
-            object_ids = []
-            
+            object_ids = []            
         return object_ids
